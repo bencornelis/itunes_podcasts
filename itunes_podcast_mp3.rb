@@ -21,7 +21,15 @@ end
 def get_mp3_urls(id)
   feed_url = get_feed_url(id)
   feed = Feedjira::Feed.fetch_and_parse(feed_url)
-  mp3_urls = feed.entries.map(&:image)
+
+  entries = feed.entries
+  if entries.first.respond_to? :enclosure_url
+    feed.entries.map(&:enclosure_url)
+  elsif entries.first.respond_to? :image
+    feed.entries.map(&:image)
+  else
+    raise "Could not find mp3 urls."
+  end
 end
 
 def get_tag_size(res)
@@ -75,9 +83,14 @@ def calculate_duration(mp3, file_size)
 end
 
 def get_mp3_metadata(id)
+
+  puts "Fetching mp3 urls..."
   mp3_urls = get_mp3_urls(id)
+
+  puts "Fetching mp3 tag sizes..."
   podcasts_metadata = get_tag_sizes(mp3_urls)
 
+  puts "Fetching mp3 metadata..."
   hydra = Typhoeus::Hydra.new
   podcasts_metadata.each do |metadata|
     url = metadata[:mp3_url]
@@ -96,7 +109,7 @@ def get_mp3_metadata(id)
           metadata[:duration] = calculate_duration(mp3, file_size)
         end
       rescue
-        puts "couldn't parse tag..."
+        puts "Could not parse tag."
       end
     end
 
